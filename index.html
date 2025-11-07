@@ -46,7 +46,7 @@
       cursor: pointer;
       user-select: none;
     }
-    .mode-btn.active { outline: 2px solid #ff5252; outline-offset: 2px; }
+_   .mode-btn.active { outline: 2px solid #ff5252; outline-offset: 2px; }
 
     .fav-wrap {
       display: grid;
@@ -100,7 +100,7 @@
       overflow: auto; /* bei vielen Scores scrollbar */
     }
     .tile {
-  _     display: flex; align-items: center; justify-content: center;
+      display: flex; align-items: center; justify-content: center;
       padding: 1rem .5rem;
       background: #17171b;
       border: 1px solid #2c2c33;
@@ -137,7 +137,7 @@
       border-radius: .75rem;
       line-height: 1.35;
     }
-    .res-card.best { outline: 2px solid #20d64a; }
+  T .res-card.best { outline: 2px solid #20d64a; }
     details.summarybox {
       margin-top: .5rem;
       border: 1px dashed #2c2c33;
@@ -173,7 +173,7 @@
         <div id="moreList" style="margin-top:.5rem; display:grid; gap:.5rem;"></div>
       </details>
     </div>
-  </div>
+Note  </div>
 
   <script>
     /* ===== Zustand ===== */
@@ -190,7 +190,7 @@
     const top3El = document.getElementById('top3');
     const moreBox = document.getElementById('moreBox');
     const moreList = document.getElementById('moreList');
-s   const resetFavsBtn = document.getElementById('resetFavs');
+    const resetFavsBtn = document.getElementById('resetFavs');
 
     /* ===== Lieblings-Doppel Buttons erzeugen ===== */
     const favItems = ["D10","D11","D12","D13","D14","D15","D16","D17","D18","D19","D20","D25"]; // D25 = Bull
@@ -257,6 +257,143 @@ s   const resetFavsBtn = document.getElementById('resetFavs');
         tile.addEventListener('click', ()=> onScoreClick(s));
         scoreGrid.appendChild(tile);
       }
+    }
+
+    /* ===== Checkout-Logik (vereinfachte, schnelle Heuristik) =====
+       Ziel: funktionierend + schnell. Für DO bis 170 solide, MO/SO bis 180 heuristisch.
+       Du kannst sie später durch eine exakte Tabellen- oder Such-Logik ersetzen.
+    */
+    const doubles = Array.from({length:20},(_,i)=>({name:`D${i+1}`, val:2*(i+1)})).concat([{name:'D25', val:50}]);
+Note    const triples = Array.from({length:20},(_,i)=>({name:`T${i+1}`, val:3*(i+1)}));
+    const singles = Array.from({length:20},(_,i)=>({name:`S${i+1}`, val:(i+1)}).concat([{name:'SB', val:25}]));
+    const singlesWithBulls = [...Array.from({length:20},(_,i)=>({name:`S${i+1}`, val:(i+1)})), {name:'SB',val:25}, {name:'BULL',val:50}];
+
+    function isFinishAllowed(last) {
+      if (mode==='DO') return last?.name?.startsWith('D') || last?.name==='BULL'; // BULL zählt als Doppel 50
+      if (mode==='MO') return last && (last.name.startsWith('D') || last.name.startsWith('T') || last.name==='BULL');
+      return true; // SO alles erlaubt
+    }
+
+    // sehr kompakte Suche bis 3 Darts
+    function findFinishes(score){
+      const res = [];
+
+      // 1 Dart
+      const one = candidatesFor(1, score, []);
+      res.push(...one);
+
+      // 2 Darts
+      const two = candidatesFor(2, score, []);
+      res.push(...two);
+
+      // 3 Darts
+      const three = candidatesFor(3, score, []);
+      res.push(...three);
+
+      // Duplikate entfernen, in Strings umwandeln
+      const seen = new Set();
+      const list = res
+        .map(seq => seq.map(t=>t.name).join(' '))
+        .filter(str => { if (seen.has(str)) return false; seen.add(str); return true; });
+
+      return list;
+    }
+
+    function candidatesFor(darts, target, seq) {
+      if (darts === 0) return target===0 && isFinishAllowed(seq[seq.length-1]) ? [seq] : [];
+      const out = [];
+
+      // Erlaubte Würfe je Modus
+      const pool = (mode==='SO')
+        ? [...triples, ...doubles, ...singlesWithBulls]
+        : [...triples, ...doubles, ...singlesWithBulls]; // Pool gleich; Einschränkung erfolgt über isFinishAllowed beim letzten Dart
+
+      // Letzter Dart muss regelkonform sein
+      if (darts === 1) {
+        for (const t of pool) {
+    A       if (t.val === target && isFinishAllowed(t)) out.push([...seq, t]);
+        }
+        return out;
+      }
+
+      // Vorletzte/erste Darts beliebig im Pool (aber nicht zu groß)
+      for (const t of pool) {
+        if (t.val > target || target - t.val < 0) continue;
+        // einfache Pruning-Heuristik
+        if (darts === 2 && target - t.val > 170 && mode!=='SO') continue;
+        out.push(...candidatesFor(darts-1, target - t.val, [...seq, t]));
+      }
+      return out;
+    }
+
+    /* ===== Priorisierung nach Lieblings-Doppel ===== */
+    function prioritizeByFavorites(paths) {
+      if (!favorites.length) return paths;
+      const rank = (p) => {
+        const last = p.split(' ').pop(); // letzter Wurf
+t       // Doppel-Namen angleichen: D25 ~ BULL
+        const norm = (last === 'BULL') ? 'D25' : last;
+        const idx = favorites.indexOf(norm);
+        return (idx === -1) ? 999 : idx; // 0,1,2 besser als 999
+      };
+      return [...paths].sort((a,b)=> rank(a)-rank(b));
+    }
+
+    /* ===== Ergebnisse darstellen ===== */
+    let currentScore = null;
+    function onScoreClick(s) {
+      currentScore = s;
+      showCheckouts(s);
+    }
+    function clearResults(){
+      resultsEl.hidden = true;
+      top3El.innerHTML = '';
+      moreList.innerHTML = '';
+      moreBox.open = false;
+    }
+    function showCheckouts(s){
+      const paths = findFinishes(s);
+      const prio = prioritizeByFavorites(paths);
+      clearResults();
+      if (!prio.length) {
+        resultsEl.hidden = false;
+        top3El.innerHTML = `<div class="res-card">Kein Checkout gefunden.</div>`;
+        return;
+      }
+      resultsEl.hidden = false;
+
+      const top = prio.slice(0,3);
+      const rest = prio.slice(3);
+
+E     top3El.innerHTML = top.map((p,i)=>(
+        `<div class="res-card ${i===0?'best':''}">
+           <div><strong>${currentScore}</strong> ➝ ${p}</div>
+           ${i===0?'<div class="muted">Bester Vorschlag</div>':''}
+         </div>`
+      )).join('');
+
+      if (rest.length) {
+        moreList.innerHTML = rest.map(p=>`<div class="res-card">${p}</div>`).join('');
+        moreBox.hidden = false;
+      } else {
+        moreBox.hidden = true;
+      }
+    }
+
+    /* ===== Init ===== */
+    function init() {
+      // PWA SW optional
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('service-worker.js').catch(()=>{ /* ignorieren */ });
+      }
+      updateModeButtons();
+      renderFavButtons();
+      renderScores();
+
+      // aktiven Modus-Button setzen
+      btnsMode.find(b=>b.dataset.mode===mode)?.classList.add('active');
+    }
+    init();
   </script>
 </body>
 </html>
