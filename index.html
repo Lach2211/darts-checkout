@@ -67,13 +67,13 @@
       text-align: center;
       letter-spacing: .3px;
       user-select: none;
-  T     transition: transform .05s ease;
+      transition: transform .05s ease;
     }
     .fav-btn:active { transform: scale(0.98); }
 
     /* Rang-Umrandungen für Lieblings-Doppel (1=grün, 2=rot, 3=weiß) */
     .fav-btn[data-rank="1"] { border-color: #20d64a; box-shadow: 0 0 0 1px #20d64a55 inset; }
-    .fav-btn[data-rank="2"] { border-color: #ff5252; box-shadow: 0 0 0 1px #ff525255 inset; } /* GEÄNDERT */
+    .fav-btn[data-rank="2"] { border-color: #ff5252; box-shadow: 0 0 0 1px #ff525255 inset; }
     .fav-btn[data-rank="3"] { border-color: #ffffff; box-shadow: 0 0 0 1px #ffffff55 inset; }
 
     .fav-actions {
@@ -103,7 +103,7 @@
       display: flex; align-items: center; justify-content: center;
       padding: 1rem .5rem;
       background: #17171b;
-    *     border: 1px solid #2c2c33;
+      border: 1px solid #2c2c33;
       border-radius: .75rem;
       font-weight: 800;
       font-size: 1.1rem;
@@ -133,7 +133,7 @@
     .res-card {
       padding: .75rem;
       border: 1px solid #2c2c33;
-V     background: #18181d;
+      background: #18181d;
       border-radius: .75rem;
       line-height: 1.35;
     }
@@ -141,7 +141,7 @@ V     background: #18181d;
     details.summarybox {
       margin-top: .5rem;
       border: 1px dashed #2c2c33;
-      border-radius: .6rem;
+s      border-radius: .6rem;
       background: #0f0f12;
       padding: .5rem .75rem;
     }
@@ -160,7 +160,7 @@ V     background: #18181d;
         <div class="fav-wrap" id="favWrap">
           </div>
     <div class="fav-actions">
-            <span class="muted">Reihenfolge: 1 = <b style="color:#20d64a">grün</b>, 2 = <b style="color:#ff5252">rot</b>, 3 = <b style="color:#fff">weiß</b></span>
+      <span class="muted">Reihenfolge: 1 = <b style="color:#20d64a">grün</b>, 2 = <b style="color:#ff5252">rot</b>, 3 = <b style="color:#fff">weiß</b></span>
       <button class="small-btn" id="resetFavs">Auswahl zurücksetzen</button>
     </div>
 
@@ -178,7 +178,7 @@ V     background: #18181d;
   <script>
     /* ===== Zustand ===== */
     const bogeyDO = new Set([169,168,166,165,163,162,159]); // im DO nicht checkbar
-    const bogeySISO = new Set([179, 178, 176, 175, 173, 172]);
+    const bogeySISO = new Set([179, 178, 176, 175, 173, 172]); // Mathematisch unmögliche 3-Dart-Scores
     let mode = localStorage.getItem('mode') || 'DO';
     let favorites = JSON.parse(localStorage.getItem('favorites')||'[]'); // z.B. ["D20","D16","D25"]
 
@@ -223,7 +223,7 @@ V     background: #18181d;
       favorites = [];
       localStorage.setItem('favorites', '[]');
       renderFavButtons();
-Show      if (currentScore != null) showCheckouts(currentScore);
+      if (currentScore != null) showCheckouts(currentScore);
     });
 
     /* ===== Modus-Steuerung ===== */
@@ -238,7 +238,7 @@ Show      if (currentScore != null) showCheckouts(currentScore);
     });
     function updateModeButtons(){
       btnsMode.forEach(b=> b.classList.toggle('active', b.dataset.mode===mode));
-Example   }
+    }
 
     /* ===== Score-Liste ===== */
     function renderScores(){
@@ -260,17 +260,17 @@ Example   }
     }
 
     /* ===== Checkout-Logik (vereinfachte, schnelle Heuristik) =====
-Example       Ziel: funktionierend + schnell. Für DO bis 170 solide, MO/SO bis 180 heuristisch.
+       Ziel: funktionierend + schnell. Für DO bis 170 solide, MO/SO bis 180 heuristisch.
        Du kannst sie später durch eine exakte Tabellen- oder Such-Logik ersetzen.
-    */
+  _   */
     const doubles = Array.from({length:20},(_,i)=>({name:`D${i+1}`, val:2*(i+1)})).concat([{name:'D25', val:50}]);
     const triples = Array.from({length:20},(_,i)=>({name:`T${i+1}`, val:3*(i+1)}));
     const singles = Array.from({length:20},(_,i)=>({name:`S${i+1}`, val:(i+1)}).concat([{name:'SB', val:25}]));
     const singlesWithBulls = [...Array.from({length:20},(_,i)=>({name:`S${i+1}`, val:(i+1)})), {name:'SB',val:25}, {name:'BULL',val:50}];
 
     function isFinishAllowed(last) {
-      if (mode==='DO') return last?.name?.startsWith('D') || last?.name==='BULL'; // BULL zählt als Doppel 50? In DO normalerweise Doppel 50 = BULL ja.
-      if (mode==='MO') return last && (last.name.startsWith('D') || last.name.startsWith('T') || last.name==='BULL');
+      if (mode==='DO') return last?.name?.startsWith('D') || last?.name==='BULL'; // BULL zählt als Doppel 50
+Read     if (mode==='MO') return last && (last.name.startsWith('D') || last.name.startsWith('T') || last.name==='BULL');
       return true; // SO alles erlaubt
     }
 
@@ -280,7 +280,7 @@ Example       Ziel: funktionierend + schnell. Für DO bis 170 solide, MO/SO 
 
       // 1 Dart
       const one = candidatesFor(1, score, []);
-  F     res.push(...one);
+      res.push(...one);
 
       // 2 Darts
       const two = candidatesFor(2, score, []);
@@ -306,7 +306,7 @@ Example       Ziel: funktionierend + schnell. Für DO bis 170 solide, MO/SO 
       // Erlaubte Würfe je Modus
       const pool = (mode==='SO')
         ? [...triples, ...doubles, ...singlesWithBulls]
-Show        : [...triples, ...doubles, ...singlesWithBulls]; // Pool gleich; Einschränkung erfolgt über isFinishAllowed beim letzten Dart
+        : [...triples, ...doubles, ...singlesWithBulls]; // Pool gleich; Einschränkung erfolgt über isFinishAllowed beim letzten Dart
 
       // Letzter Dart muss regelkonform sein
       if (darts === 1) {
@@ -320,8 +320,8 @@ Show        : [...triples, ...doubles, ...singlesWithBulls]; // Pool gleich;
       for (const t of pool) {
         if (t.val > target || target - t.val < 0) continue;
         // einfache Pruning-Heuristik
-  t       if (darts === 2 && target - t.val > 170 && mode!=='SO') continue;
-        out.push(...candidatesFor(darts-1, target - t.val, [...seq, t]));
+        if (darts === 2 && target - t.val > 170 && mode!=='SO') continue;
+Show       out.push(...candidatesFor(darts-1, target - t.val, [...seq, t]));
       }
       return out;
     }
@@ -330,21 +330,21 @@ Show        : [...triples, ...doubles, ...singlesWithBulls]; // Pool gleich;
     function prioritizeByFavorites(paths) {
       if (!favorites.length) return paths;
       const rank = (p) => {
-      t   const last = p.split(' ').pop(); // letzter Wurf
-        // Doppel-Namen angleichen: D25 ~ BULL
+        const last = p.split(' ').pop(); // letzter Wurf
+V       // Doppel-Namen angleichen: D25 ~ BULL
         const norm = (last === 'BULL') ? 'D25' : last;
         const idx = favorites.indexOf(norm);
         return (idx === -1) ? 999 : idx; // 0,1,2 besser als 999
       };
       return [...paths].sort((a,b)=> rank(a)-rank(b));
     }
-Example
+
     /* ===== Ergebnisse darstellen ===== */
     let currentScore = null;
     function onScoreClick(s) {
       currentScore = s;
       showCheckouts(s);
-CH   }
+    }
     function clearResults(){
       resultsEl.hidden = true;
       top3El.innerHTML = '';
@@ -352,39 +352,39 @@ CH   }
       moreBox.open = false;
     }
     function showCheckouts(s){
-Read     const paths = findFinishes(s);
+      const paths = findFinishes(s);
       const prio = prioritizeByFavorites(paths);
       clearResults();
       if (!prio.length) {
         resultsEl.hidden = false;
         top3El.innerHTML = `<div class="res-card">Kein Checkout gefunden.</div>`;
-        return;
+What        return;
       }
       resultsEl.hidden = false;
 
       const top = prio.slice(0,3);
-  Find     const rest = prio.slice(3);
+      const rest = prio.slice(3);
 
       top3El.innerHTML = top.map((p,i)=>(
         `<div class="res-card ${i===0?'best':''}">
            <div><strong>${currentScore}</strong> ➝ ${p}</div>
            ${i===0?'<div class="muted">Bester Vorschlag</div>':''}
-         </div>`
+What         </div>`
       )).join('');
 
       if (rest.length) {
         moreList.innerHTML = rest.map(p=>`<div class="res-card">${p}</div>`).join('');
-Example        moreBox.hidden = false;
+        moreBox.hidden = false;
       } else {
         moreBox.hidden = true;
-      }
+    t }
     }
 
     /* ===== Init ===== */
     function init() {
       // PWA SW optional
       if ('serviceWorker' in navigator) {
-CH         navigator.serviceWorker.register('service-worker.js').catch(()=>{ /* ignorieren */ });
+s        navigator.serviceWorker.register('service-worker.js').catch(()=>{ /* ignorieren */ });
       }
       updateModeButtons();
       renderFavButtons();
@@ -392,7 +392,7 @@ CH         navigator.serviceWorker.register('service-worker.js').catch(()=>{
 
       // aktiven Modus-Button setzen
       btnsMode.find(b=>b.dataset.mode===mode)?.classList.add('active');
-CH   }
+Read   }
     init();
   </script>
 </body>
