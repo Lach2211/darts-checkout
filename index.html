@@ -1,400 +1,296 @@
 <!doctype html>
 <html lang="de">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <meta name="theme-color" content="#111" />
-  <title>Darts Checkout Rechner (PWA)</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#111" />
+  <title>Darts Checkout Rechner (PWA)</title>
+  <link rel="manifest" href="manifest.json">
+  <style>
+    :root{
+      --bg:#0e0e10; --bg2:#121216; --bg3:#18181d; --line:#26262b;
+      --tile:#17171b; --tileLine:#2c2c33; --text:#eee; --muted:#9aa;
+      --accent:#20d64a; --accent2:#ffd54a;
+    }
+    html,body{margin:0;padding:0;height:100%;background:var(--bg);color:var(--text);
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,"Helvetica Neue",Arial,"Noto Sans";}
+    .app{min-height:100vh;display:flex;flex-direction:column}
+    .bar{display:grid;gap:.5rem;grid-template-columns:repeat(3,minmax(0,1fr));
+      padding:.75rem;background:#16161a;position:sticky;top:0;z-index:5;border-bottom:1px solid var(--line)}
+    .mode-btn{padding:.65rem .8rem;border:1px solid #333;background:#1f1f24;color:#ddd;border-radius:.6rem;font-weight:600;cursor:pointer}
+    .mode-btn.active{outline:2px solid #ff5252;outline-offset:2px}
 
-    <link rel="manifest" href="manifest.json">
+    .fav-wrap{display:grid;gap:.5rem;grid-template-columns:repeat(6,minmax(0,1fr));
+      padding:.6rem .75rem .4rem;background:var(--bg2);border-bottom:1px solid var(--line)}
+    .fav-btn{padding:.5rem .4rem;border:2px solid #2a2a2f;background:var(--bg3);color:#eaeaea;border-radius:.6rem;
+      font-weight:700;cursor:pointer;text-align:center;letter-spacing:.3px;user-select:none;transition:transform .05s}
+    .fav-btn:active{transform:scale(.98)}
+    .fav-btn[data-rank="1"]{border-color:var(--accent);box-shadow:0 0 0 1px #20d64a55 inset}
+    .fav-btn[data-rank="2"]{border-color:var(--accent2);box-shadow:0 0 0 1px #ffd54a55 inset}
+    .fav-btn[data-rank="3"]{border-color:#fff;box-shadow:0 0 0 1px #ffffff55 inset}
 
-  <style>
-    /* ===== Reset & Layout auf 100% ===== */
-    html, body {
-      margin: 0;
-      padding: 0;
-      height: 100%;
-      background: #0e0e10;
-      color: #eee;
-      font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
-    }
-    .app {
-      min-height: 100vh;      /* volle Höhe */
-      width: 100vw;           /* volle Breite */
-      display: flex;
-      flex-direction: column;
-      box-sizing: border-box;
-    }
-    .bar {
-      display: grid;
-      gap: .5rem;
-      grid-template-columns: repeat(3, minmax(0,1fr));
-      padding: .75rem;
-      background: #16161a;
-      position: sticky;
-      top: 0;
-      z-index: 5;
-      border-bottom: 1px solid #26262b;
-    }
-    .mode-btn {
-      padding: .65rem .8rem;
-      border: 1px solid #333;
-      background: #1f1f24;
-      color: #ddd;
-      border-radius: .6rem;
-      font-weight: 600;
-      cursor: pointer;
-      user-select: none;
-    }
-    .mode-btn.active { outline: 2px solid #ff5252; outline-offset: 2px; }
+    .fav-actions{display:flex;gap:.5rem;padding:0 .75rem .75rem;background:var(--bg2);
+      align-items:center;flex-wrap:wrap;border-bottom:1px solid var(--line)}
+    .small-btn{padding:.45rem .65rem;border-radius:.5rem;border:1px solid #333;background:#1f1f24;color:#ddd;cursor:pointer}
+    .muted{color:var(--muted);font-size:.9rem}
 
-    /* ===== Lieblings-Doppel (Wieder da!) ===== */
-    .fav-wrap {
-      display: grid;
-      gap: .5rem;
-      grid-template-columns: repeat(6, minmax(0,1fr));
-      padding: .6rem .75rem .4rem;
-      background: #121216;
-      border-bottom: 1px solid #26262b;
-    }
-    .fav-btn {
-      padding: .5rem .4rem;
-      border: 2px solid #2a2a2f;
-      background: #18181d;
-      color: #eaeaea;
-      border-radius: .6rem;
-      font-weight: 700;
-      cursor: pointer;
-      text-align: center;
-      letter-spacing: .3px;
-      user-select: none;
-      transition: transform .05s ease;
-    }
-    .fav-btn:active { transform: scale(0.98); }
+    /* ===== 50/50 Split ===== */
+    .content{display:grid;grid-template-columns:1fr 1fr;gap:0}
+    @media (max-width:900px){.content{grid-template-columns:1fr}}
 
-    /* Rang-Umrandungen (1=grün, 2=rot, 3=weiß) */
-    .fav-btn[data-rank="1"] { border-color: #20d64a; box-shadow: 0 0 0 1px #20d64a55 inset; }
-    .fav-btn[data-rank="2"] { border-color: #ff5252; box-shadow: 0 0 0 1px #ff525255 inset; }
-    .fav-btn[data-rank="3"] { border-color: #ffffff; box-shadow: 0 0 0 1px #ffffff55 inset; }
+    /* linke Seite: Score-Grid */
+    .left{border-right:1px solid var(--line);min-height:0}
+    .grid{
+      --tile-min:70px;
+      padding:.75rem;display:grid;grid-template-columns:repeat(auto-fill,minmax(var(--tile-min),1fr));
+      gap:.5rem;max-height:calc(100vh - 240px); /* grob: unter Bar+Favs */
+      overflow:auto;
+    }
+    .tile{
+      display:flex;align-items:center;justify-content:center;
+      padding:1rem .5rem;background:var(--tile);border:1px solid var(--tileLine);
+      border-radius:.75rem;font-weight:800;font-size:1.15rem;cursor:pointer;user-select:none;color:#fff;
+    }
+    .tile:active{transform:scale(.985)}
+    .tile.min3{border-color:#ff5252;background:#1a0f10;box-shadow:0 0 0 2px #ff525233 inset}
 
-    .fav-actions {
-      display: flex; gap: .5rem; padding: 0 .75rem .75rem; background: #121216; align-items: center; flex-wrap: wrap;
-      border-bottom: 1px solid #26262b;
-    }
-    .small-btn {
-      padding: .45rem .65rem;
-      border-radius: .5rem;
-      border: 1px solid #333;
-      background: #1f1f24;
-      color: #ddd;
-      cursor: pointer;
-    }
-
-    /* Score-Grid füllt die ganze Breite, responsive Kacheln */
-    .grid {
-      --tile-min: 70px; /* Mindestbreite einer Kachel */
-      padding: .75rem;
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(var(--tile-min), 1fr));
-      gap: .5rem;
-      flex: 1;
-      overflow: auto; /* bei vielen Scores scrollbar */
-    }
-    .tile {
-      display: flex; align-items: center; justify-content: center;
-      padding: 1rem .5rem;
-      background: #17171b;
-      border: 1px solid #2c2c33;
-      border-radius: .75rem;
-      font-weight: 800;
-      font-size: 1.1rem;
-      cursor: pointer;
-      user-select: none;
-    }
-    .tile:active { transform: scale(0.985); }
-
-    /* Finish-Zonen Hervorhebung (NEU & KORRIGIERT) */
-    /* 3-Dart (Rot) */
-    .tile.min3 {
-      border-color: #ff5252;
-      background: #1a0f10;
-      box-shadow: 0 0 0 2px #ff525233 inset;
-    }
-    /* 2-Dart (Gelb) */
-    .tile.min2 {
-      border-color: #ffd54a;
-      background: #1a180f;
-      box-shadow: 0 0 0 2px #ffd54a33 inset;
-    }
-    /* 1-Dart (Grün) */
-    .tile.min1 {
-      border-color: #20d64a;
-      background: #0f1a10;
-      box-shadow: 0 0 0 2px #20d64a33 inset;
-    }
-
-    /* Ergebnisbereich */
-    .results {
-      padding: .75rem;
-      border-top: 1px solid #26262b;
-      background: #121216;
-    }
-    .top3 {
-      display: grid;
-      gap: .5rem;
-      grid-template-columns: 1fr;
-    }
-    .res-card {
-      padding: .75rem;
-      border: 1px solid #2c2c33;
-      background: #18181d;
-      border-radius: .75rem;
-      line-height: 1.35;
-    }
-    .res-card.best { outline: 2px solid #20d64a; }
-    details.summarybox {
-      margin-top: .5rem;
-      border: 1px dashed #2c2c33;
-      border-radius: .6rem;
-      background: #0f0f12;
-      padding: .5rem .75rem;
-    }
-    details summary { cursor: pointer; font-weight: 700; color: #bbb; }
-    .muted { color: #9aa; font-size: .9rem; }
-  </style>
+    /* rechte Seite: Ergebnisse deutlich größer */
+    .right{background:var(--bg2);min-height:0;display:flex;flex-direction:column}
+    .results{padding:1rem;border-left:1px solid var(--line);overflow:auto}
+    .results h2{margin:.25rem 0 1rem 0}
+    .top3{display:grid;gap:.75rem}
+    .res-card{
+      padding:1rem;border:1px solid var(--tileLine);background:var(--bg3);border-radius:.9rem;line-height:1.35;
+      font-size:1.6rem; /* ~2x */
+    }
+    .res-card .muted{font-size:.95rem}
+    .res-card.best{outline:3px solid var(--accent);outline-offset:3px}
+    details.summarybox{margin-top:.8rem;border:1px dashed var(--tileLine);border-radius:.6rem;background:#0f0f12;padding:.5rem .75rem}
+    details summary{cursor:pointer;font-weight:700;color:#bbb}
+    #moreList .res-card{font-size:1.3rem}
+  </style>
 </head>
 <body>
-  <div class="app" id="app">
-        <div class="bar">
-      <button class="mode-btn" data-mode="DO">Double Out</button>
-      <button class="mode-btn" data-mode="MO">Master Out</button>
-      <button class="mode-btn" data-mode="SO">Straight Out</button>
-    </div>
+  <div class="app" id="app">
+    <div class="bar">
+      <button class="mode-btn" data-mode="DO">Double Out</button>
+      <button class="mode-btn" data-mode="MO">Master Out</button>
+      <button class="mode-btn" data-mode="SO">Straight Out</button>
+    </div>
 
-        <div class="fav-wrap" id="favWrap">
-          </div>
-    <div class="fav-actions">
-      <span class="muted">Reihenfolge: 1 = <b style="color:#20d64a">grün</b>, 2 = <b style="color:#ff5252">rot</b>, 3 = <b style="color:#fff">weiß</b></span>
-      <button class="small-btn" id="resetFavs">Auswahl zurücksetzen</button>
-    </div>
+    <div class="fav-wrap" id="favWrap"></div>
+    <div class="fav-actions">
+      <span class="muted">Reihenfolge: 1 = <b style="color:#20d64a">grün</b>, 2 = <b style="color:#ffd54a">gelb</b>, 3 = <b style="color:#fff">weiß</b></span>
+      <button class="small-btn" id="resetFavs">Auswahl zurücksetzen</button>
+    </div>
 
-        <div class="grid" id="scoreGrid" aria-live="polite"></div>
+    <div class="content">
+      <div class="left">
+        <div class="grid" id="scoreGrid" aria-live="polite"></div>
+      </div>
+      <div class="right">
+        <div class="results" id="results" hidden>
+          <h2>Checkout-Ergebnisse</h2>
+          <div class="top3" id="top3"></div>
+          <details class="summarybox" id="moreBox">
+            <summary>Alle weiteren Checkouts anzeigen</summary>
+            <div id="moreList" style="margin-top:.5rem; display:grid; gap:.5rem;"></div>
+          </details>
+        </div>
+      </div>
+    </div>
+  </div>
 
-        <div class="results" id="results" hidden>
-      <div class="top3" id="top3"></div>
-      <details class="summarybox" id="moreBox">
-        <summary>Alle weiteren Checkouts anzeigen</summary>
-        <div id="moreList" style="margin-top:.5rem; display:grid; gap:.5rem;"></div>
-      </details>
-    </div>
-  </div>
+  <script>
+    /* ===== Zustand ===== */
+    const bogeyDO = new Set([169,168,166,165,163,162,159]); // klassische DO-Bogeys
+    let mode = localStorage.getItem('mode') || 'DO';
+    let favorites = JSON.parse(localStorage.getItem('favorites')||'[]'); // z.B. ["D20","D16","Bull"]
+    let currentScore = null;
 
-  <script>
-    /* ===== Zustand ===== */
-    const bogeyDO = new Set([169,168,166,165,163,162,159]);
-    const bogeySISO = new Set([179, 178, 176, 175, 173, 172]);
-    let mode = localStorage.getItem('mode') || 'DO';
-    let favorites = JSON.parse(localStorage.getItem('favorites')||'[]'); // Lieblings-Doppel
-    let currentScore = null;
+    /* ===== DOM ===== */
+    const btnsMode = [...document.querySelectorAll('.mode-btn')];
+    const scoreGrid = document.getElementById('scoreGrid');
+    const favWrap = document.getElementById('favWrap');
+    const resultsEl = document.getElementById('results');
+    const top3El = document.getElementById('top3');
+    const moreBox = document.getElementById('moreBox');
+    const moreList = document.getElementById('moreList');
+    const resetFavsBtn = document.getElementById('resetFavs');
 
-    /* ===== DOM ===== */
-    const btnsMode = [...document.querySelectorAll('.mode-btn')];
-    const scoreGrid = document.getElementById('scoreGrid');
-    const favWrap = document.getElementById('favWrap'); // Lieblings-Doppel
-    const resultsEl = document.getElementById('results');
-    const top3El = document.getElementById('top3');
-    const moreBox = document.getElementById('moreBox');
-    const moreList = document.getElementById('moreList');
-    const resetFavsBtn = document.getElementById('resetFavs'); // Lieblings-Doppel
+    /* ===== Wurfpools ===== */
+    const doubles = Array.from({length:20},(_,i)=>({name:`D${i+1}`, val:2*(i+1), type:'D'}));
+    const triples = Array.from({length:20},(_,i)=>({name:`T${i+1}`, val:3*(i+1), type:'T'}));
+    const singles = Array.from({length:20},(_,i)=>({name:`S${i+1}`, val:(i+1), type:'S'}));
+    const SB = {name:'SB', val:25, type:'SB'};
+    const BULL = {name:'Bull', val:50, type:'BULL'}; // Darstellung immer „Bull“
 
-    /* ===== Lieblings-Doppel Buttons erzeugen (Wieder da!) ===== */
-    const favItems = ["D10","D11","D12","D13","D14","D15","D16","D17","D18","D19","D20","D25"]; // D25 = Bull
-    function renderFavButtons() {
-      favWrap.innerHTML = '';
-      favItems.forEach(d => {
-        const b = document.createElement('button');
-        b.className = 'fav-btn';
-        b.textContent = d;
-        const rank = favorites.indexOf(d);
-        if (rank !== -1) b.dataset.rank = (rank+1).toString();
-        b.addEventListener('click', () => toggleFavorite(d));
-        favWrap.appendChild(b);
-      });
-    }
-    function toggleFavorite(dbl) {
-      const idx = favorites.indexOf(dbl);
-      if (idx >= 0) {
-        favorites.splice(idx,1); // entfernen
-      } else {
-        if (favorites.length < 3) favorites.push(dbl);
-      }
-      localStorage.setItem('favorites', JSON.stringify(favorites));
-      renderFavButtons();
-      if (currentScore != null) showCheckouts(currentScore);
-    }
-    resetFavsBtn.addEventListener('click', () => {
-      favorites = [];
-      localStorage.setItem('favorites', '[]');
-      renderFavButtons();
-      if (currentScore != null) showCheckouts(currentScore);
-    });
+    const poolCommon = [...triples, ...doubles, ...singles, SB, BULL];
 
-    /* ===== Modus-Steuerung ===== */
-    btnsMode.forEach(b=>{
-      b.addEventListener('click', ()=>{
-        mode = b.dataset.mode;
-        localStorage.setItem('mode', mode);
-        updateModeButtons();
-        renderScores();
-        clearResults();
-      });
-    });
-    function updateModeButtons(){
-      btnsMode.forEach(b=> b.classList.toggle('active', b.dataset.mode===mode));
-      // Zeige/verstecke Lieblings-Doppel-Leiste basierend auf Modus
-      const showFavs = (mode === 'DO');
-      favWrap.style.display = showFavs ? 'grid' : 'none';
-      document.querySelector('.fav-actions').style.display = showFavs ? 'flex' : 'none';
-    }
+    function isFinishAllowed(last){
+      if(!last) return false;
+      if(mode==='DO') return last.type==='D' || last.type==='BULL';
+      if(mode==='MO') return last.type==='D' || last.type==='T' || last.type==='BULL';
+      return true; // SO
+    }
 
-    /* ===== Score-Liste ===== */
-    function renderScores(){
-      scoreGrid.innerHTML = '';
-      const range = (mode==='DO') ? {min:2, max:170} : {min:2, max:180};
-      
-      for (let s = range.max; s >= range.min; s--) {
-        if (mode==='DO' && bogeyDO.has(s)) continue; 
-        if (mode!=='DO' && bogeySISO.has(s)) continue; 
+    /* ===== Lieblings-Doppel Buttons (D10..D20 + Bull) ===== */
+    const favItems = ["D10","D11","D12","D13","D14","D15","D16","D17","D18","D19","D20","Bull"];
+    function renderFavButtons(){
+      favWrap.innerHTML='';
+      favItems.forEach(d=>{
+        const b=document.createElement('button');
+        b.className='fav-btn';
+        b.textContent=d;
+        const rank=favorites.indexOf(d);
+        if(rank!==-1) b.dataset.rank=(rank+1).toString();
+        b.addEventListener('click',()=>toggleFavorite(d));
+        favWrap.appendChild(b);
+      });
+    }
+    function toggleFavorite(dbl){
+      const idx=favorites.indexOf(dbl);
+      if(idx>=0) favorites.splice(idx,1);
+      else if(favorites.length<3) favorites.push(dbl);
+      localStorage.setItem('favorites', JSON.stringify(favorites));
+      renderFavButtons();
+      if(currentScore!=null) showCheckouts(currentScore);
+    }
+    resetFavsBtn.addEventListener('click',()=>{
+      favorites=[]; localStorage.setItem('favorites','[]'); renderFavButtons();
+      if(currentScore!=null) showCheckouts(currentScore);
+    });
 
-        const tile = document.createElement('button');
-        tile.className = 'tile';
-        
-        // KORRIGIERTE Zonen-Logik (basierend auf Screenshot)
-        if (s > 110 && s <= 170) {
-          tile.classList.add('min3'); // 3-Dart: 111-170
-        } else if (s > 40 && s !== 50 && s <= 110) {
-          tile.classList.add('min2'); // 2-Dart: 41-49, 51-110
-        } else if (s <= 40 || s === 50) {
-          tile.classList.add('min1'); // 1-Dart: 2-40, 50
-        }
-        // (Scores über 170 im MO/SO bekommen keine Farbe)
+    /* ===== Modus-Steuerung ===== */
+    btnsMode.forEach(b=>{
+      b.addEventListener('click',()=>{
+        mode=b.dataset.mode;
+        localStorage.setItem('mode',mode);
+        updateModeButtons();
+        renderScores();
+        clearResults();
+      });
+    });
+    function updateModeButtons(){ btnsMode.forEach(b=>b.classList.toggle('active', b.dataset.mode===mode)); }
 
-        tile.textContent = s;
-        tile.addEventListener('click', ()=> onScoreClick(s));
-        scoreGrid.appendChild(tile);
-      }
-    }
+    /* ===== Kanonisierung: erste Darts absteigend, letzter bleibt letzter ===== */
+    function canon(seq){
+      const last=seq[seq.length-1];
+      const firsts=seq.slice(0,-1).sort((a,b)=> b.val-a.val || a.name.localeCompare(b.name));
+      const arr=[...firsts,last];
+      return {text:arr.map(t=>t.name).join(' '), len:seq.length, last:last.name};
+    }
 
-    /* ===== Checkout-Logik (Die 'Brute-Force'-Suche, wieder da!) ===== */
-    const doubles = Array.from({length:20},(_,i)=>({name:`D${i+1}`, val:2*(i+1)})).concat([{name:'D25', val:50}]);
-    const triples = Array.from({length:20},(_,i)=>({name:`T${i+1}`, val:3*(i+1)}));
-    const singlesWithBulls = [...Array.from({length:20},(_,i)=>({name:`S${i+1}`, val:(i+1)})), {name:'SB',val:25}, {name:'BULL',val:50}];
+    /* ===== Suche bis 3 Darts, dedupliziert & kanonisiert ===== */
+    function findFinishes(score){
+      const outMap=new Map(); // text -> {len,last}
+      function rec(darts, target, seq){
+        if(darts===0){ 
+          if(target===0 && isFinishAllowed(seq[seq.length-1])){
+            const c=canon(seq);
+            const prev=outMap.get(c.text);
+            if(!prev || c.len<prev.len) outMap.set(c.text,{len:c.len,last:c.last});
+          }
+          return;
+        }
+        if(darts===1){
+          for(const t of poolCommon){
+            if(t.val===target && isFinishAllowed(t)) rec(0,0,[...seq,t]);
+          }
+          return;
+        }
+        for(const t of poolCommon){
+          if(t.val>target) continue;
+          rec(darts-1, target-t.val, [...seq,t]);
+        }
+      }
+      rec(1, score, []);         // 1 Dart
+      rec(2, score, []);         // 2 Darts
+      rec(3, score, []);         // 3 Darts
 
-    function isFinishAllowed(last) {
-      if (mode==='DO') return last?.name?.startsWith('D') || last?.name==='BULL';
-      if (mode==='MO') return last && (last.name.startsWith('D') || last.name.startsWith('T') || last.name==='BULL');
-      return true; // SO
-    }
+      const arr=[...outMap.entries()].map(([text,meta])=>({text, len:meta.len, last:meta.last}));
+      return arr;
+    }
 
-    function findFinishes(score){
-      const res = [];
-      const one = candidatesFor(1, score, []);
-      res.push(...one);
-      const two = candidatesFor(2, score, []);
-      res.push(...two);
-      const three = candidatesFor(3, score, []);
-      res.push(...three);
+    /* ==== Favoriten-Priorisierung (deine Reihenfolge gewinnt) ==== */
+    function favoriteIndex(last){
+      // Bull als 'Bull'
+      const idx = favorites.indexOf(last);
+      return idx === -1 ? 99 : idx; // 0,1,2 besser
+    }
+    function prioritize(paths){
+      // sortiere: (favIndex, len, lex)
+      return [...paths].sort((a,b)=>{
+        const fa=favoriteIndex(a.last), fb=favoriteIndex(b.last);
+        if(fa!==fb) return fa-fb;
+        if(a.len!==b.len) return a.len-b.len;
+        return a.text.localeCompare(b.text);
+      });
+    }
 
-      const seen = new Set();
-      const list = res
-        .map(seq => seq.map(t=>t.name).join(' '))
-        .filter(str => { if (seen.has(str)) return false; seen.add(str); return true; });
-      return list;
-    }
+    /* ===== Ergebnisdarstellung ===== */
+    function clearResults(){
+      resultsEl.hidden=true; top3El.innerHTML=''; moreList.innerHTML=''; moreBox.open=false;
+    }
+    function onScoreClick(s){ currentScore=s; showCheckouts(s); }
+    function showCheckouts(s){
+      const paths=findFinishes(s);
+      const prio=prioritize(paths);
+      clearResults();
+      resultsEl.hidden=false;
 
-    function candidatesFor(darts, target, seq) {
-      if (darts === 0) return target===0 && isFinishAllowed(seq[seq.length-1]) ? [seq] : [];
-      const out = [];
-      const pool = [...triples, ...doubles, ...singlesWithBulls];
+      if(!prio.length){
+        top3El.innerHTML = `<div class="res-card">Kein Checkout gefunden.</div>`;
+        moreBox.hidden=true; return;
+      }
+      const top=prio.slice(0,3), rest=prio.slice(3);
+      top3El.innerHTML = top.map((p,i)=>(
+        `<div class="res-card ${i===0?'best':''}">
+           <div><strong>${currentScore}</strong> → ${p.text}</div>
+           ${i===0?'<div class="muted">Bester Vorschlag</div>':''}
+         </div>`
+      )).join('');
+      if(rest.length){
+        moreList.innerHTML = rest.map(p=>`<div class="res-card">${p.text}</div>`).join('');
+        moreBox.hidden=false;
+      }else moreBox.hidden=true;
+    }
 
-      if (darts === 1) {
-        for (const t of pool) {
-          if (t.val === target && isFinishAllowed(t)) out.push([...seq, t]);
-        }
-        return out;
-      }
+    /* ===== Score-Liste mit korrekter Bogey-Filterung & min3-Flag ===== */
+    const cacheMinDarts = new Map(); // score -> minLen or Infinity
+    function getMinDarts(score){
+      if(cacheMinDarts.has(score)) return cacheMinDarts.get(score);
+      const list=findFinishes(score);
+      const min=list.length? Math.min(...list.map(x=>x.len)) : Infinity;
+      cacheMinDarts.set(score,min);
+      return min;
+    }
 
-      for (const t of pool) {
-        if (t.val > target || target - t.val < 0) continue;
-        if (darts === 2 && target - t.val > 170 && mode!=='SO') continue;
-        out.push(...candidatesFor(darts-1, target - t.val, [...seq, t]));
-      }
-      return out;
-    }
+    function renderScores(){
+      scoreGrid.innerHTML='';
+      const range = (mode==='DO') ? {min:2, max:170} : {min:2, max:180};
+      for(let s=range.max; s>=range.min; s--){
+        if(mode==='DO' && bogeyDO.has(s)) continue; // klassische DO-Bogeys
+        // Für MO/SO (und DO abseits klassischer Bogeys): nur Scores zeigen, die überhaupt in ≤3 Darts checkbar sind:
+        const minD = getMinDarts(s);
+        if(!isFinite(minD)) continue; // echte Bogey-Zahl im aktuellen Modus
+        const tile=document.createElement('button');
+        tile.className='tile'; if(minD===3) tile.classList.add('min3');
+        tile.textContent=String(s);
+        tile.addEventListener('click',()=>onScoreClick(s));
+        scoreGrid.appendChild(tile);
+      }
+    }
 
-    /* ===== Priorisierung nach Lieblings-Doppel (Wieder da!) ===== */
-    function prioritizeByFavorites(paths) {
-      if (mode !== 'DO' || !favorites.length) return paths;
-      const rank = (p) => {
-        const last = p.split(' ').pop(); 
-        const norm = (last === 'BULL') ? 'D25' : last;
-        const idx = favorites.indexOf(norm);
-        return (idx === -1) ? 999 : idx; // 0,1,2 besser als 999
-      };
-      return [...paths].sort((a,b)=> rank(a)-rank(b));
-    }
-
-    /* ===== Ergebnisse darstellen ===== */
-    function onScoreClick(s) {
-      currentScore = s;
-      showCheckouts(s);
-    }
-    function clearResults(){
-      resultsEl.hidden = true;
-      top3El.innerHTML = '';
-      moreList.innerHTML = '';
-      moreBox.open = false;
-    }
-    function showCheckouts(s){
-      const paths = findFinishes(s);
-      const prio = prioritizeByFavorites(paths); // Sortiert nach Favoriten
-      clearResults();
-      if (!prio.length) {
-        resultsEl.hidden = false;
-        top3El.innerHTML = `<div class="res-card">Kein Checkout gefunden.</div>`;
-        return;
-      }
-      resultsEl.hidden = false;
-
-      const top = prio.slice(0,3);
-      const rest = prio.slice(3);
-
-      top3El.innerHTML = top.map((p,i)=>(
-        `<div class="res-card ${i===0?'best':''}">
-           <div><strong>${currentScore}</strong> ➝ ${p}</div>
-  A         ${i===0?'<div class="muted">Bester Vorschlag</div>':''}
-         </div>`
-      )).join('');
-
-      if (rest.length) {
-        moreList.innerHTML = rest.map(p=>`<div class="res-card">${p}</div>`).join('');
-        moreBox.hidden = false;
-      } else {
-        moreBox.hidden = true;
-      }
-    }
-
-    /* ===== Init ===== */
-    function init() {
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('service-worker.js').catch(()=>{ /* ignorieren */ });
-      }
-      updateModeButtons();
-      renderFavButtons(); // Lieblings-Doppel
-      renderScores();
-      btnsMode.find(b=>b.dataset.mode===mode)?.classList.add('active');
-    }
-    init();
-  </script>
+    /* ===== Init ===== */
+    function init(){
+      if('serviceWorker' in navigator){ navigator.serviceWorker.register('service-worker.js').catch(()=>{}); }
+      updateModeButtons();
+      renderFavButtons();
+      renderScores();
+      btnsMode.find(b=>b.dataset.mode===mode)?.classList.add('active');
+    }
+    init();
+  </script>
 </body>
 </html>
