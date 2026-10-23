@@ -57,7 +57,7 @@
   }
   async function apiSave(method, data) {
     if (!await validSession()) throw Error('Bitte erneut anmelden.');
-    const q = '/rest/v1/triangle_puzzle_saves?user_id=eq.' + encodeURIComponent(session.user.id) + (method === 'GET' ? '&select=save_data' : '&on_conflict=user_id');
+    const q = '/rest/v1/triangle_puzzle_saves?' + (method === 'GET' ? ('user_id=eq.' + encodeURIComponent(session.user.id) + '&select=save_data') : 'on_conflict=user_id');
     const r = await fetch(BASE + q, {
       method,
       headers: {
