@@ -126,13 +126,28 @@ svg#game{display:block;width:100%;height:auto;max-height:min(100%,calc(100dvh - 
   .gamearea{order:2;flex:1 1 0;min-height:0;height:auto}
   .controls{position:relative;bottom:auto;box-shadow:none}
 }
+
+/* Cloud account controls */
+.cloudstrip{display:flex;justify-content:center;margin-top:6px}
+.cloudbtn{border:1px solid #cbd7e9;background:#f2f6ff;color:#31477e;border-radius:14px;padding:5px 10px;font-size:11px;font-weight:800;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#cloudModal{position:fixed;z-index:60;inset:0}
+#cloudModal .card{width:min(100%,390px);max-height:min(90dvh,680px)}
+.cloudfield{display:flex;flex-direction:column;gap:5px;margin:11px 0;font-weight:750;color:#42546c;font-size:13px}
+.cloudfield input{width:100%;border:1px solid #c9d3e4;border-radius:12px;background:#fff;color:#20304b;font-size:16px;padding:13px;outline-color:#455fc5}
+.cloudactions{display:flex;gap:9px;flex-wrap:wrap;margin-top:13px}
+.cloudactions button{flex:1;min-width:110px;border:0;border-radius:12px;padding:12px;font-weight:850;background:#3247b7;color:#fff}
+.cloudactions .secondary{background:#edf1fa;color:#33436c}
+#cloudMessage{font-size:12px;line-height:1.4;margin:11px 0 0;color:#386079}
+#cloudSignOut:not([hidden]){display:block;width:100%;margin-top:12px;border:0;border-radius:10px;padding:12px;background:#ffedf0;color:#9e3043;font-weight:800}
+#cloudModal button[hidden]{display:none}
+@media(max-width:719px) and (max-height:680px){.cloudstrip{margin-top:3px}.cloudbtn{padding:3px 9px;font-size:10px}}
 </style>
 </head>
 <body>
 <div class="shell">
 <header>
   <div class="top">
-    <div class="brand"><div class="logo">▲</div><div><h1>Dreiecks-Puzzle Kampagne</h1><div class="subtitle">50 Level · Ziehen, drehen, tüfteln <strong class="versionmark" id="version">v1.2.0</strong></div></div></div>
+    <div class="brand"><div class="logo">▲</div><div><h1>Dreiecks-Puzzle Kampagne</h1><div class="subtitle">50 Level · Ziehen, drehen, tüfteln <strong class="versionmark" id="version">v1.3.0</strong></div></div></div>
     <div class="chips">
       <div class="chip level" id="levelChip">Level 1 / 50</div>
       <div class="chip stars" id="starChip">★ 0</div>
@@ -147,6 +162,7 @@ svg#game{display:block;width:100%;height:auto;max-height:min(100%,calc(100dvh - 
     <button class="toolbtn" id="hint">◈ Tipp</button>
     <button class="toolbtn primary" id="shuffle">⇄ Mischen</button>
   </div>
+  <div class="cloudstrip"><button type="button" class="cloudbtn" id="cloudOpen">☁ Spielstand nur auf diesem Gerät · Anmelden</button></div>
 </header>
 <div class="gamearea">
   <svg id="game" viewBox="0 0 1000 1240" xmlns="http://www.w3.org/2000/svg" aria-label="Dreieckspuzzle mit mehreren Leveln">
@@ -186,6 +202,19 @@ svg#game{display:block;width:100%;height:auto;max-height:min(100%,calc(100dvh - 
     <div class="grid" id="gridD"></div>
   </div></div>
 </div>
+<div class="overlay" id="cloudModal">
+ <div class="card" role="dialog" aria-modal="true" aria-label="Spielstand online speichern">
+  <div class="levelHead"><div><h2>☁ Spielstand online</h2><p>Auf Handy, Tablet und PC denselben Fortschritt nutzen.</p></div><button type="button" class="bigbtn" id="cloudClose" style="flex:0 0 auto;padding:9px;min-width:70px">Schließen</button></div>
+  <label class="cloudfield">E-Mail-Adresse<input id="cloudMail" type="email" autocomplete="email" inputmode="email" placeholder="deine@email.de"></label>
+  <label class="cloudfield">Passwort<input id="cloudPass" type="password" autocomplete="current-password" placeholder="Passwort"></label>
+  <div class="cloudactions">
+   <button id="cloudSignIn" type="button">Anmelden</button>
+   <button id="cloudSignUp" type="button" class="secondary">Neu registrieren</button>
+  </div>
+  <div id="cloudMessage" aria-live="polite"></div>
+  <button type="button" id="cloudSignOut" hidden>Abmelden</button>
+ </div>
+</div>
 <div class="controls">
   <div class="controlrow"><button class="rotate" id="ccw">↶</button><div id="selection">Teil antippen und mit dem Finger ziehen</div><button class="rotate" id="cw">↷</button></div>
   <div class="hintline">Kurz antippen = drehen · Alle geometrisch passenden Positionen sind erlaubt · Sterne gibt es ohne oder mit wenigen Tipps</div>
@@ -219,9 +248,71 @@ let targetTriangles=[]; let targetIndex=new Map(); let placements=[]; let byCell
 let currentLevel=1, chosen=null, gesture=null, toastTimeout=null, hintTimeout=null;
 let hasStarted=false,startAt=0,elapsed=0,hintsUsed=0;
 const stateKey='trianglePuzzleCampaign50';
+let applyingSave=false;
 const state=loadState();
-function loadState(){try{const s=JSON.parse(localStorage.getItem(stateKey)||'null');if(s&&typeof s==='object')return {unlocked:Math.max(1,Math.min(50,Number(s.unlocked)||1)),records:s.records||{}};}catch(e){} return {unlocked:1,records:{}};}
-function saveState(){try{localStorage.setItem(stateKey,JSON.stringify(state));}catch(e){}}
+function loadState(){
+  try{const s=JSON.parse(localStorage.getItem(stateKey)||'null');if(s&&typeof s==='object')return {
+    unlocked:Math.max(1,Math.min(50,Number(s.unlocked)||1)),
+    records:s.records||{},lastLevel:Math.max(1,Math.min(50,Number(s.lastLevel)||Number(s.unlocked)||1)),
+    progress:s.progress||null,savedAt:Math.max(0,Number(s.savedAt)||0)
+  };}catch(e){}
+  return {unlocked:1,records:{},lastLevel:1,progress:null,savedAt:0};
+}
+function saveState(options={}){
+  if(applyingSave || !pieces.length)return;
+  state.lastLevel=currentLevel;
+  state.savedAt=Date.now();
+  state.progress=options.completed ? null : {
+    level:currentLevel,
+    elapsed:elapsed+(hasStarted?(performance.now()-startAt)/1000:0),
+    hintsUsed,
+    pieces:pieces.map(p=>({rot:p.rot,tx:p.tx,ty:p.ty,snapped:p.snapped,
+      placement:p.snapped&&p.placement?{rot:p.placement.rot,di:p.placement.di,dj:p.placement.dj}:null}))
+  };
+  try{localStorage.setItem(stateKey,JSON.stringify(state));}catch(e){}
+  window.dispatchEvent(new Event('triangle-puzzle-save'));
+}
+function restoreProgress(pr){
+  if(!pr || Number(pr.level)!==currentLevel || !Array.isArray(pr.pieces) || pr.pieces.length!==pieces.length)return;
+  elapsed=Math.max(0,Number(pr.elapsed)||0);hasStarted=false;hintsUsed=Math.max(0,Number(pr.hintsUsed)||0);
+  let occupied=0n;
+  pieces.forEach((p,i)=>{
+    const x=pr.pieces[i]||{};
+    const rot=((Math.trunc(Number(x.rot)||0)%6)+6)%6;
+    if(Number.isFinite(Number(x.tx)) && Number.isFinite(Number(x.ty))){
+      p.tx=Math.max(-800,Math.min(1800,Number(x.tx)));
+      p.ty=Math.max(-800,Math.min(1900,Number(x.ty)));
+    }
+    p.rot=rot; p.snapped=false;p.placement=null;
+    if(x.snapped && x.placement){
+      const q=(placements[p.index]||[]).find(q=>q.rot===Number(x.placement.rot)&&q.di===Number(x.placement.di)&&q.dj===Number(x.placement.dj));
+      if(q && !(q.mask&occupied)){
+        occupied|=q.mask;p.snapped=true;p.placement=q;p.rot=q.rot;p.tx=q.cx;p.ty=q.cy;
+      }
+    }
+    render(p);
+  });
+  setSelectionIdle();updateProgress();
+}
+function adoptSave(newData){
+  if(!newData || typeof newData!=='object')return;
+  applyingSave=true;
+  try{
+    state.unlocked=Math.max(1,Math.min(50,Number(newData.unlocked)||1));
+    state.records=newData.records&&typeof newData.records==='object'?newData.records:{};
+    state.lastLevel=Math.max(1,Math.min(50,Number(newData.lastLevel)||state.unlocked));
+    state.savedAt=Math.max(0,Number(newData.savedAt)||0);
+    state.progress=newData.progress||null;
+    loadLevel(state.lastLevel);
+    restoreProgress(state.progress);
+    try{localStorage.setItem(stateKey,JSON.stringify(state));}catch(e){}
+    updateHeader();buildLevelGrid();
+  }finally{applyingSave=false;}
+}
+window.TriangleCloudBridge={
+  getLocal:()=>JSON.parse(JSON.stringify(state)),
+  apply:adoptSave
+};
 function totalStars(){return Object.values(state.records).reduce((a,r)=>a+(r.stars||0),0);}
 function formatTime(sec){const n=Math.max(0,Math.floor(sec));return String(Math.floor(n/60)).padStart(2,'0')+':'+String(n%60).padStart(2,'0');}
 function timerTick(){document.getElementById('timer').textContent=formatTime(elapsed+(hasStarted?(performance.now()-startAt)/1000:0));requestAnimationFrame(timerTick);}
@@ -293,11 +384,11 @@ function solve(locked=[]){const all=(1n<<BigInt(targetIndex.size))-1n; let occup
   return search(occupied,used);
 }
 function hintSolution(){const locked=lockOthers(null),n=locked.length; for(let keep=n;keep>=0;keep--) for(let subset=0; subset<(1<<n); subset++){ if(bitcount(subset)!==keep) continue; const retained=locked.filter((_,i)=>(subset&(1<<i))!==0); const solution=solve(retained); if(solution){const wrong=locked.filter(opt=>solution[opt.index].mask!==opt.mask); return {solution,wrong}; }} return null;}
-function hint(){const result=hintSolution(); if(!result){toast('Hier finde ich gerade keinen Tipp'); return;} hintsUsed++; const rest=pieces.filter(p=>!p.snapped); const stuck=result.wrong.length>0; const p=stuck ? (chosen&&result.wrong.some(q=>q.index===chosen.index)?chosen:pieces[result.wrong[0].index]) : (chosen&&!chosen.snapped?chosen:rest[0]); if(!p){toast('Alles sitzt bereits richtig'); return;} const opt=result.solution[p.index]; select(p); const tris=p.cells.map(c=>({vs:vertices(...transformedCells([c],opt.rot,opt.di,opt.dj)[0])})); ghostLayer.replaceChildren(); edgesOf(tris,e=>{if(e.n===1){const a=world(e.a[0],e.a[1]), b=world(e.b[0],e.b[1]); el('line',{x1:a.x,y1:a.y,x2:b.x,y2:b.y},ghostLayer);}}); ghostLayer.style.opacity='1'; clearTimeout(hintTimeout); hintTimeout=setTimeout(()=>ghostLayer.style.opacity='0',3600); toast(stuck?'Sackgasse! Diesen Stein anders legen.':'Tipp eingeblendet.');}
-function scatter(shuffled=false){document.getElementById('win').classList.remove('show'); clearTimeout(hintTimeout); ghostLayer.style.opacity='0'; pauseClock(); elapsed=0; hasStarted=false; hintsUsed=0; pieces.forEach((p,i)=>{p.snapped=false; p.placement=null; const slot=scatterSlots[i]; const rot=(currentLevel+i*2+(shuffled?1:0))%6; p.rot=rot; p.tx=slot.x; p.ty=slot.y; render(p);}); setSelectionIdle(); updateProgress();}
-function changed(){document.getElementById('win').classList.remove('show'); updateProgress();}
+function hint(){const result=hintSolution(); if(!result){toast('Hier finde ich gerade keinen Tipp'); return;} hintsUsed++; const rest=pieces.filter(p=>!p.snapped); const stuck=result.wrong.length>0; const p=stuck ? (chosen&&result.wrong.some(q=>q.index===chosen.index)?chosen:pieces[result.wrong[0].index]) : (chosen&&!chosen.snapped?chosen:rest[0]); if(!p){toast('Alles sitzt bereits richtig'); return;} const opt=result.solution[p.index]; select(p); const tris=p.cells.map(c=>({vs:vertices(...transformedCells([c],opt.rot,opt.di,opt.dj)[0])})); ghostLayer.replaceChildren(); edgesOf(tris,e=>{if(e.n===1){const a=world(e.a[0],e.a[1]), b=world(e.b[0],e.b[1]); el('line',{x1:a.x,y1:a.y,x2:b.x,y2:b.y},ghostLayer);}}); ghostLayer.style.opacity='1'; clearTimeout(hintTimeout); hintTimeout=setTimeout(()=>ghostLayer.style.opacity='0',3600); toast(stuck?'Sackgasse! Diesen Stein anders legen.':'Tipp eingeblendet.');saveState();}
+function scatter(shuffled=false){document.getElementById('win').classList.remove('show'); clearTimeout(hintTimeout); ghostLayer.style.opacity='0'; pauseClock(); elapsed=0; hasStarted=false; hintsUsed=0; pieces.forEach((p,i)=>{p.snapped=false; p.placement=null; const slot=scatterSlots[i]; const rot=(currentLevel+i*2+(shuffled?1:0))%6; p.rot=rot; p.tx=slot.x; p.ty=slot.y; render(p);}); setSelectionIdle(); updateProgress();saveState();}
+function changed(){document.getElementById('win').classList.remove('show'); updateProgress();saveState();}
 function starString(n){return '★'.repeat(n)+'☆'.repeat(3-n);}
-function win(){pauseClock(); const duration=elapsed; let stars=hintsUsed===0?3:(hintsUsed===1?2:1); const key=String(currentLevel); const rec=state.records[key]||{stars:0,best:0}; const best=!rec.best||duration<rec.best?duration:rec.best; state.records[key]={stars:Math.max(rec.stars||0,stars),best}; if(currentLevel<50) state.unlocked=Math.max(state.unlocked,currentLevel+1); saveState(); updateHeader(); buildLevelGrid(); document.getElementById('winText').textContent=`Level ${currentLevel} mit ${pieces.length} Teilen geschafft.`; document.getElementById('winStars').textContent=starString(stars); document.getElementById('timeChip').textContent=`Zeit: ${formatTime(duration)}`; document.getElementById('bestChip').textContent=`Bestzeit: ${formatTime(best)}`; document.getElementById('nextLevel').disabled=currentLevel>=50; document.getElementById('nextLevel').style.opacity=currentLevel>=50?'.55':'1'; document.getElementById('win').classList.add('show');}
+function win(){pauseClock(); const duration=elapsed; let stars=hintsUsed===0?3:(hintsUsed===1?2:1); const key=String(currentLevel); const rec=state.records[key]||{stars:0,best:0}; const best=!rec.best||duration<rec.best?duration:rec.best; state.records[key]={stars:Math.max(rec.stars||0,stars),best}; if(currentLevel<50) state.unlocked=Math.max(state.unlocked,currentLevel+1); saveState({completed:true}); updateHeader(); buildLevelGrid(); document.getElementById('winText').textContent=`Level ${currentLevel} mit ${pieces.length} Teilen geschafft.`; document.getElementById('winStars').textContent=starString(stars); document.getElementById('timeChip').textContent=`Zeit: ${formatTime(duration)}`; document.getElementById('bestChip').textContent=`Bestzeit: ${formatTime(best)}`; document.getElementById('nextLevel').disabled=currentLevel>=50; document.getElementById('nextLevel').style.opacity=currentLevel>=50?'.55':'1'; document.getElementById('win').classList.add('show');}
 function loadLevel(levelNumber){currentLevel=Math.max(1,Math.min(50,levelNumber)); updateHeader(); const level=LEVELS[currentLevel-1]; pieceLayer.replaceChildren(); pieces=[]; buildTarget(level); level.pieces.forEach((g,i)=>pieces.push(makePiece(i,g.shape,g))); buildPlacements(level); pieces.forEach(drawPiece); scatter(false);}
 function buildLevelGrid(){const ranges=[['gridA',1,10],['gridB',11,20],['gridC',21,35],['gridD',36,50]]; for(const [id,a,b] of ranges){const host=document.getElementById(id); host.replaceChildren(); for(let n=a;n<=b;n++){const rec=state.records[String(n)]||null; const unlocked=n<=state.unlocked; const btn=document.createElement('button'); btn.className='levelbtn'+(n===currentLevel?' current':'')+(unlocked?'':' locked'); btn.disabled=!unlocked; btn.innerHTML=`<div>${n}</div><div class="stars">${rec?starString(rec.stars):'☆☆☆'}</div><small>${unlocked?'frei':'🔒'}</small>`; btn.addEventListener('click',()=>{document.getElementById('levelsModal').classList.remove('show'); loadLevel(n);}); host.appendChild(btn); }} document.getElementById('levelMeta').textContent=`Freigeschaltet bis Level ${state.unlocked} · Sterne gesamt: ${totalStars()}`;}
 
@@ -311,8 +402,9 @@ document.getElementById('nextLevel').addEventListener('click',()=>{if(currentLev
 document.getElementById('pickLevel').addEventListener('click',()=>{document.getElementById('win').classList.remove('show'); buildLevelGrid(); document.getElementById('levelsModal').classList.add('show');});
 document.getElementById('openLevels').addEventListener('click',()=>{buildLevelGrid(); document.getElementById('levelsModal').classList.add('show');});
 document.getElementById('closeLevels').addEventListener('click',()=>document.getElementById('levelsModal').classList.remove('show'));
-updateHeader(); buildLevelGrid(); loadLevel(state.unlocked); timerTick();
+applyingSave=true;updateHeader(); buildLevelGrid(); loadLevel(state.lastLevel||state.unlocked); restoreProgress(state.progress); applyingSave=false; timerTick();
 })();
 </script>
+<script src="./cloud.js?v=1.3.0" defer></script>
 </body>
 </html>
