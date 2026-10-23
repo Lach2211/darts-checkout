@@ -545,7 +545,7 @@ svg.addEventListener('pointerdown',e=>{
       const g=gesture;
       gesture=null;g.p.node.classList.remove('dragging');
       if(g.moved){snapPosition(g.p);changed();}
-      try{g.p.node.releasePointerCapture(g.id);}catch(_){}
+      // Keep the first pointer capture during pinch; it still bubbles to SVG.
     }
     zoomPan=null;
     const [a,b]=[...zoomPointers.values()];
